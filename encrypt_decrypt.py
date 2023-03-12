@@ -122,13 +122,55 @@ secret_client.set_secret(
 
 # COMMAND ----------
 
-with open('call.csv', 'rb') as file:
+# print(os.getcwd())
+
+# # get the list of files and directories under the current directory
+# files = os.listdir()
+
+# # print the list of files and directories
+# for file in files:
+#     print(file)
+
+# Replace <key-vault-name> and <public-key-secret-name> with the name of your key vault and the name of your public key secret, respectively
+key_vault_name = "linwen-dev-vault"
+public_key_secret_name = "my-test-rsa-private-key"
+
+# Create a credential object using DefaultAzureCredential
+credential = DefaultAzureCredential()
+
+# Create a SecretClient object to access the key vault
+client = SecretClient(vault_url=f"https://{key_vault_name}.vault.azure.net/", credential=credential)
+
+# Get the value of the public key secret
+private_key_secret = client.get_secret(public_key_secret_name)
+
+# Extract the public key from the secret value
+private_key_pem = private_key_secret.value
+
+#print(private_key_pem)
+
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+private_key = load_pem_private_key(private_key_pem, password=b'123!Abc123')
+
+public_key = private_key.public_key()
+
+# Export the public key in PEM format
+public_key_pem = public_key.public_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PublicFormat.SubjectPublicKeyInfo
+)
+
+# Print the public key
+print(public_key_pem)
+
+with open('calls.csv', 'rb') as file:
     data = file.read()
 
-public_key = serialization.load_pem_public_key(public_key)
+public_key = serialization.load_pem_public_key(public_key_pem)
 
 encrypted_data = public_key.encrypt(
-    data,
+    data.encode('utf-8'),
     padding.OAEP(
         mgf=padding.MGF1(algorithm=hashes.SHA256()),
         algorithm=hashes.SHA256(),
@@ -136,8 +178,8 @@ encrypted_data = public_key.encrypt(
     )
 )
 
-with open('call.csv.bin', 'wb') as file:
-    file.write(encrypted_data)
+# with open('call.csv.bin', 'wb') as file:
+#     file.write(encrypted_data)
 
 # COMMAND ----------
 
