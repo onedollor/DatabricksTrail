@@ -86,10 +86,24 @@ private_key_protected = private_key.private_bytes(
     encryption_algorithm=serialization.BestAvailableEncryption(password)
 )
 
-public_key = private_key.public_key().public_bytes(
+public_key_bytes = private_key.public_key().public_bytes(
     encoding=serialization.Encoding.PEM,
     format=serialization.PublicFormat.SubjectPublicKeyInfo
 )
+
+public_key = private_key.public_key()
+
+# with open('calls.csv', 'rb') as file:
+#     data = file.read()
+data = b"test data"
+
+encrypted_data = public_key.encrypt(plaintext=data, padding=padding.PKCS1v15())
+decrypted_data = private_key.decrypt(
+    encrypted_data,
+    padding=padding.PKCS1v15()
+)
+
+print(decrypted_data)
 
 # COMMAND ----------
 
@@ -135,34 +149,36 @@ backend = default_backend()
 #backend = openssl.backend
 
 # Get the value of the public key secret
-private_key_secret = client.get_secret(public_key_secret_name)
+vault_private_key_secret = secret_client.get_secret(secret_name)
 
 # Extract the public key from the secret value
-private_key_string = private_key_secret.value
+vault_private_key_string = vault_private_key_secret.value
 
-private_key_bytes = private_key_string.encode('utf-8')
+vault_private_key_bytes = vault_private_key_string.encode('utf-8')
 
 # Deserialize the private key from bytes
-private_key = serialization.load_pem_private_key(private_key_bytes, password=b'123!Abc123', backend=backend)
+vault_private_key = serialization.load_pem_private_key(vault_private_key_bytes, password=b'123!Abc123', backend=backend)
 
 
 
 # COMMAND ----------
 
-public_key = private_key.public_key()
+vault_public_key = vault_private_key.public_key()
 
 #Export the public key in PEM format
-public_key_pem = public_key.public_bytes(
-    encoding=serialization.Encoding.PEM,
-    format=serialization.PublicFormat.SubjectPublicKeyInfo
-)
- 
-public_key = serialization.load_pem_public_key(public_key_pem, backend=backend)
- 
+# vault_public_key_pem = vault_public_key.public_bytes(
+#     encoding=serialization.Encoding.PEM,
+#     format=serialization.PublicFormat.SubjectPublicKeyInfo
+# )
+
+
+# vault_public_key = serialization.load_pem_public_key(vault_public_key_pem, backend=backend)
+
+
 with open('calls.csv', 'rb') as file:
     data = file.read()
 
-encrypted_data = public_key.encrypt(plaintext=data, padding=padding.PKCS1v15())
+encrypted_data = vault_public_key.encrypt(plaintext=data, padding=padding.PKCS1v15())
 
 # Encrypt the plaintext using the RSA public key with PKCS1v15 padding
 with open('call.csv.bin', 'wb') as file:
