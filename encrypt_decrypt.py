@@ -145,41 +145,35 @@ client = SecretClient(vault_url=f"https://{key_vault_name}.vault.azure.net/", cr
 private_key_secret = client.get_secret(public_key_secret_name)
 
 # Extract the public key from the secret value
-private_key_pem = private_key_secret.value
+private_key_string = private_key_secret.value
 
-#print(private_key_pem)
+private_key_bytes = private_key_string.encode('utf-8')
 
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
+# Deserialize the private key from bytes
+private_key = serialization.load_pem_private_key(private_key_bytes, password=b'123!Abc123', backend=default_backend())
 
-private_key = load_pem_private_key(private_key_pem, password=b'123!Abc123')
+
+
+# COMMAND ----------
 
 public_key = private_key.public_key()
 
 # Export the public key in PEM format
-public_key_pem = public_key.public_bytes(
-    encoding=serialization.Encoding.PEM,
-    format=serialization.PublicFormat.SubjectPublicKeyInfo
-)
+# public_key_pem = public_key.public_bytes(
+#     encoding=serialization.Encoding.PEM,
+#     format=serialization.PublicFormat.SubjectPublicKeyInfo
+# )
 
-# Print the public key
-print(public_key_pem)
+#public_key = serialization.load_pem_public_key(public_key_pem, backend=default_backend())
 
 with open('calls.csv', 'rb') as file:
     data = file.read()
 
-public_key = serialization.load_pem_public_key(public_key_pem)
+encrypted_data = public_key.encrypt(plaintext=data, padding=padding.PKCS1v15())
 
-encrypted_data = public_key.encrypt(
-    data.encode('utf-8'),
-    padding.OAEP(
-        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-        algorithm=hashes.SHA256(),
-        label=None
-    )
-)
-
-# with open('call.csv.bin', 'wb') as file:
-#     file.write(encrypted_data)
+# Encrypt the plaintext using the RSA public key with PKCS1v15 padding
+with open('call.csv.bin', 'wb') as file:
+    file.write(encrypted_data)
 
 # COMMAND ----------
 
@@ -192,20 +186,16 @@ private_key_protected = secret_client.get_secret(secret_name).value.encode('utf-
 
 private_key = serialization.load_pem_private_key(
     private_key_protected,
-    password=password
+    password=b'123!Abc123'
 )
 
-with open('call.csv.bin', 'rb') as file:
+with open('calls.csv.bin', 'rb') as file:
     encrypted_data = file.read()
 
 decrypted_data = private_key.decrypt(
     encrypted_data,
-    padding.OAEP(
-        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-        algorithm=hashes.SHA256(),
-        label=None
-    )
+    padding=padding.PKCS1v15()
 )
 
-with open('call.csv.txt', 'wb') as file:
+with open('calls.csv.txt', 'wb') as file:
     file.write(decrypted_data)
