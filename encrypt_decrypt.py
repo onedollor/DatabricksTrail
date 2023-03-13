@@ -175,7 +175,7 @@ vault_public_key = vault_private_key.public_key()
 # vault_public_key = serialization.load_pem_public_key(vault_public_key_pem, backend=backend)
 
 
-with open('calls.csv', 'rb') as file:
+with open('calls.csv', 'rb', "utf-8") as file:
     data = file.read()
 
 encrypted_data = vault_public_key.encrypt(plaintext=data, padding=padding.PKCS1v15())
