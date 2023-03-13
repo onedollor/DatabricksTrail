@@ -63,6 +63,8 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.backends import openssl
+from cryptography.hazmat.backends import default_backend
 
 # COMMAND ----------
 
@@ -96,19 +98,26 @@ public_key = private_key.public_key().public_bytes(
 
 # COMMAND ----------
 
+# Replace <key-vault-name> and <public-key-secret-name> with the name of your key vault and the name of your public key secret, respectively
+key_vault_name = "linwen-dev-vault"
+secret_name = "my-test-rsa-private-key"
+
+# Create a credential object using DefaultAzureCredential
 credential = DefaultAzureCredential()
 
+# Create a SecretClient object to access the key vault
 secret_client = SecretClient(
     vault_url="https://linwen-dev-vault.vault.azure.net/",
     credential=credential
 )
 
-secret_name = "my-test-rsa-private-key"
+private_key_secret = secret_client.get_secret(secret_name)
 
-secret_client.set_secret(
-    secret_name,
-    private_key_protected.decode('utf-8')
-)
+if private_key_secret is None:
+    secret_client.set_secret(
+        secret_name,
+        private_key_protected.decode('utf-8')
+    )
 
 # COMMAND ----------
 
@@ -122,24 +131,8 @@ secret_client.set_secret(
 
 # COMMAND ----------
 
-# print(os.getcwd())
-
-# # get the list of files and directories under the current directory
-# files = os.listdir()
-
-# # print the list of files and directories
-# for file in files:
-#     print(file)
-
-# Replace <key-vault-name> and <public-key-secret-name> with the name of your key vault and the name of your public key secret, respectively
-key_vault_name = "linwen-dev-vault"
-public_key_secret_name = "my-test-rsa-private-key"
-
-# Create a credential object using DefaultAzureCredential
-credential = DefaultAzureCredential()
-
-# Create a SecretClient object to access the key vault
-client = SecretClient(vault_url=f"https://{key_vault_name}.vault.azure.net/", credential=credential)
+backend = default_backend()
+#backend = openssl.backend
 
 # Get the value of the public key secret
 private_key_secret = client.get_secret(public_key_secret_name)
@@ -150,7 +143,7 @@ private_key_string = private_key_secret.value
 private_key_bytes = private_key_string.encode('utf-8')
 
 # Deserialize the private key from bytes
-private_key = serialization.load_pem_private_key(private_key_bytes, password=b'123!Abc123', backend=default_backend())
+private_key = serialization.load_pem_private_key(private_key_bytes, password=b'123!Abc123', backend=backend)
 
 
 
@@ -158,14 +151,14 @@ private_key = serialization.load_pem_private_key(private_key_bytes, password=b'1
 
 public_key = private_key.public_key()
 
-# Export the public key in PEM format
-# public_key_pem = public_key.public_bytes(
-#     encoding=serialization.Encoding.PEM,
-#     format=serialization.PublicFormat.SubjectPublicKeyInfo
-# )
-
-#public_key = serialization.load_pem_public_key(public_key_pem, backend=default_backend())
-
+#Export the public key in PEM format
+public_key_pem = public_key.public_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PublicFormat.SubjectPublicKeyInfo
+)
+ 
+public_key = serialization.load_pem_public_key(public_key_pem, backend=backend)
+ 
 with open('calls.csv', 'rb') as file:
     data = file.read()
 
